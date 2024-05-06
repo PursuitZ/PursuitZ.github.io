@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Threejs Demo</title>
+</head>
+
+<body>
+    <div class="canvas-container" id="canvasDom"></div>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "./build/three.module.js",
+                "three/addons/": "./examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from "three";
+
+        import { GUI } from "three/addons/libs/lil-gui.module.min.js";
+        import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+        import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+        import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
+
+        let controls;
+        // let canvasDom = ref(null);
+        const modelContainer = new THREE.Object3D();
+
+        // 创建三维场景
+        const scene = new THREE.Scene();
+
+        // 创建相机
+        const camera = new THREE.PerspectiveCamera(
+            50, // 视角角度
+            window.innerWidth / window.innerHeight, // 宽高比
+            0.1, // 近平面
+            1000 // 远平面
+        );
+        camera.position.set(0, 0, 100);
+
+        // 创建渲染器
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        const render = () => {
+            renderer.render(scene, camera);
+            controls && controls.update();
+            requestAnimationFrame(render);
+        };
+
+        function animate() {
+            // 把渲染器插入到dom
+            document.getElementById('canvasDom').appendChild(renderer.domElement);
+            // 初始化渲染器，渲染背景
+            renderer.setClearColor("#000");
+            scene.background = new THREE.Color("#3d3d3d");
+            render();
+
+            // 添加控制器
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.update();
+
+            // 添加gltf模型
+            const loader = new GLTFLoader();
+            const dracoLoader = new DRACOLoader();
+            dracoLoader.setDecoderPath("public/draco/gltf/");
+            loader.setDRACOLoader(dracoLoader);
+            loader.load("public/model/liver.glb", (gltf) => {
+                // 加载成功后的回调函数
+                let model = gltf.scene;
+                model.scale.set(0.3, 0.3, 0.3);
+                const box = new THREE.Box3().setFromObject(model);
+                // 获取包围盒中心点
+                const center = box.getCenter(new THREE.Vector3());
+                model.position.sub(center); // 将模型位置移到原点处
+                // 将模型添加到父对象中
+                modelContainer.add(model);
+                scene.add(modelContainer);
+            });
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 3);
+            scene.add(ambientLight);
+            // gui交互界面
+            const gui = new GUI();
+            gui.domElement.style.top = "10px";
+
+            const colorObj = {
+                color: "#3d3d3d",
+                bool: false,
+            };
+            gui
+                .addColor(colorObj, "color")
+                .name("背景颜色")
+                .onChange(function (value) {
+                    scene.background = scene.background = new THREE.Color(value);
+                });
+
+            gui.add(ambientLight, "intensity", 1, 5).name("环境光强度").step(0.1);
+            window.addEventListener("resize", () => {
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+            });
+
+            gui
+                .add(colorObj, "bool")
+                .name("自动旋转")
+                .onChange(function (value) {
+                    controls.autoRotate = value;
+                });
+        }
+        animate();
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        canvas {
+            display: block;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</body>
+
+</html>
